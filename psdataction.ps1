@@ -11,12 +11,12 @@ $productFolderName = "revit2023"
 
 if(Test-Path -Path "C:\Program Files\Autodesk_Temp\")
 {
-    $copyResult = Copy-Item "files\$extractorFile" -Destination "C:\Program Files\Autodesk_Temp\$($extractorFile)" -Force
+    $copyResult = Copy-Item "files\$($extractorFile)" -Destination "C:\Program Files\Autodesk_Temp\$($extractorFile)" -Force
 
 }else
 {
     New-Item -Path "C:\Program Files\Autodesk_Temp\" -ItemType Directory -Force
-    $copyResult = Copy-Item "files\$extractorFile" -Destination "C:\Program Files\Autodesk_Temp\$($extractorFile)" -Force
+    $copyResult = Copy-Item "files\$($extractorFile)" -Destination "C:\Program Files\Autodesk_Temp\$($extractorFile)" -Force
 }
 
 if(Test-Path -Path "C:\Program Files\Autodesk_Temp\$($extractorFile)")
@@ -62,30 +62,32 @@ do
 if($successLine -ne $null)
 {
     #If deployment image has been created then all files have been extracted
-    #Use silent uninstall command from the deployment.bat file
-    #Start-Process -FilePath "C:\Program Files\Autodesk Deployment Cache\AutoCad\image\Installer.exe" -ArgumentList '-i uninstall -q --manifest "C:\Program Files\Autodesk Deployment Cache\AutoCad\image\ACD_2022_en-US\setup.xml" --extension_manifest "C:\Program Files\Autodesk Deployment Cache\AutoCad\image\ACD_2022_en-US\setup_ext.xml"' -Wait
-
-    $executable = ""
-    $uninstallArgs = ""
+    #Use silent installation command from the deployment.bat file 
+    #If the package deployment fails check this section to make sure the batch file exists and the both parts of the command line are present.
+    #if there are issues manually change part1 and part2 to the values from the install command like the line below
+    #Start-Process -FilePath "C:\Temp\Autodesk_Deployments\Vehicle_Tracking\image\Installer.exe" -ArgumentList '-i deploy --offline_mode -q -o "C:\Temp\Autodesk_Deployments\Vehicle_Tracking\image\Collection.xml" --installer_version "1.41.0.249"'
+    
+    $part1 = ""
+    $part2 = ""
+    $installArgs = ""
 
     foreach($line in $installFile)
     {
         #We are looking for the silent install line so we can find that using this sub string
-        if($line.Contains("-i uninstall -q"))
+        if($line.Contains("-i deploy --offline_mode -q"))
         {            
             #we need to split the installation line into two parts so that it can be used by the Start-Process command
             $installParts = $line -split " -i "
             #We need to remove the "rem " part of the line
-            $executable = $installParts[0].Remove(0, 4)
+            $part1 = $installParts[0].Remove(0, 4)
+            #We need to add back in the "-i" switch for the command line
+            $part2 = "-i $($installParts[1])"
 
-            #Now we will split the line to get the manifest and extension manifest xml locations
-            $xmlLocations = (($line -split "--manifest ")[1] -split "--extension_manifest ")
-            $manifestXml = $xmlLocations[0]
-            $extension_manifestXml = $xmlLocations[1]
-            
-            #We can now put it all together in an array for powershell to handle
-            $uninstallArgs = @(
-            "-i", "uninstall", "-q", "--manifest", $manifestXml, "--extension_manifest", $extension_manifestXml
+            $xmlPath = '"' + $part2.split('"')[1] + '"'
+            $installerVersion = '"' + $part2.split('"')[3] + '"'
+
+            $installArgs = @(
+            "-i", "deploy", "--offline_mode", "-q", "-o", $xmlPath, "--installer_version", $installerVersion
 
             )
 
@@ -94,7 +96,7 @@ if($successLine -ne $null)
 
     try
     {
-        Start-ADTProcess -File $executable -ArgumentList $uninstallArgs -Wait
+        Start-ADTProcess -File $part1 -ArgumentList $installArgs -Wait
     }
     catch
     {
@@ -102,6 +104,7 @@ if($successLine -ne $null)
         Write-Host $_
 
     }
+
 }
 
 Remove-Item -Path "C:\Program Files\Autodesk_Temp" -Recurse -Force
