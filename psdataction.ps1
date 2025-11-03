@@ -96,7 +96,7 @@ if($successLine -ne $null)
 
     try
     {
-        Start-ADTProcess -File $part1 -ArgumentList $installArgs -Wait
+        Start-ADTProcess -File $part1 -ArgumentList $installArgs -WaitForMsiExec -WaitForChildProcesses
     }
     catch
     {
