@@ -89,8 +89,8 @@ param
 $adtSession = @{
     # App variables.
     AppVendor = 'Autodesk'
-    AppName = 'Autodesk Revit 2023'
-    AppVersion = '2023.1.8'
+    AppName = 'Revit 2023'
+    AppVersion = 'v1.8'
     AppArch = 'x86'
     AppLang = 'EN'
     AppRevision = '01'
@@ -98,7 +98,7 @@ $adtSession = @{
     AppRebootExitCodes = @(1641, 3010)
     AppProcessesToClose = @()  # Example: @('excel', @{ Name = 'winword'; Description = 'Microsoft Word' })
     AppScriptVersion = '1.0.0'
-    AppScriptDate = '11/03/2025'
+    AppScriptDate = '11/04/2025'
     AppScriptAuthor = 'Lee Lovell'
     RequireAdmin = $true
 
@@ -126,122 +126,18 @@ function Install-ADTDeployment
 
     Show-ADTInstallationProgress -StatusMessage "Installation in progress...`n`nThe installation may take up to 45 minutes to an hour."
 
+    Start-ADTProcess -FilePath Revit2023.exe -ArgumentList "-q" 
+
     ##================================================
     ## MARK: Install
     ##================================================
     $adtSession.InstallPhase = $adtSession.DeploymentType
 
-    $sciptName = $MyInvocation.MyCommand.Name
-    $myLocation = $MyInvocation.MyCommand.Source.Replace("$($sciptName)", "")
-    
-    cd $myLocation
-    
-    #Path for installation tool
-    #Enter name of installation tool below
-    $extractorFile = "Revit 2023.1.8 10-29-2025.exe"
-    $deploymentCacheFolder = "C:\ai2io_it\revit\downloads"
-    $productFolderName = "revit2023"
-    
-    if(Test-Path -Path "C:\Program Files\Autodesk_Temp\")
-    {
-        $copyResult = Copy-Item "files\$($extractorFile)" -Destination "C:\Program Files\Autodesk_Temp\$($extractorFile)" -Force
-    
-    }else
-    {
-        New-Item -Path "C:\Program Files\Autodesk_Temp\" -ItemType Directory -Force
-        $copyResult = Copy-Item "files\$($extractorFile)" -Destination "C:\Program Files\Autodesk_Temp\$($extractorFile)" -Force
-    }
-    
-    if(Test-Path -Path "C:\Program Files\Autodesk_Temp\$($extractorFile)")
-    {
-        Start-Process -FilePath "C:\Program Files\Autodesk_Temp\$($extractorFile)" -ArgumentList "-q" -Wait
-    }
-    
-    $tempDeploymentDirectory = [System.IO.DirectoryInfo]::new("$($deploymentCacheFolder)\$($productFolderName)")
-    $successLine = $null
-    $installFile = $null
-    
-    do
-    {
-    
-        foreach($file in $tempDeploymentDirectory.GetFiles())
-        {
-    
-            if($file.Extension -eq ".log")
-            {
-                $log = Get-Content -Path $file.FullName
-    
-                $successLine = $log | Where-Object {$_ -match "The deployment image is created successfully"}
-    
-            }
-    
-            if($successLine -ne $null)
-            {
-                #Get the generated install batch file
-                if($file.extension -eq ".bat")
-                {
-    
-                    $installFile = Get-Content -Path $file.FullName
-    
-                }
-    
-            }
-    
-            
-        }
-    
-    }Until($successLine -ne $null)
-    
-    if($successLine -ne $null)
-    {
-        #If deployment image has been created then all files have been extracted
-        #Use silent installation command from the deployment.bat file 
-        #If the package deployment fails check this section to make sure the batch file exists and the both parts of the command line are present.
-        #if there are issues manually change part1 and part2 to the values from the install command like the line below
-        #Start-Process -FilePath "C:\Temp\Autodesk_Deployments\Vehicle_Tracking\image\Installer.exe" -ArgumentList '-i deploy --offline_mode -q -o "C:\Temp\Autodesk_Deployments\Vehicle_Tracking\image\Collection.xml" --installer_version "1.41.0.249"'
-        
-        $part1 = ""
-        $part2 = ""
-        $installArgs = ""
-    
-        foreach($line in $installFile)
-        {
-            #We are looking for the silent install line so we can find that using this sub string
-            if($line.Contains("-i deploy --offline_mode -q"))
-            {            
-                #we need to split the installation line into two parts so that it can be used by the Start-Process command
-                $installParts = $line -split " -i "
-                #We need to remove the "rem " part of the line
-                $part1 = $installParts[0].Remove(0, 4)
-                #We need to add back in the "-i" switch for the command line
-                $part2 = "-i $($installParts[1])"
-    
-                $xmlPath = '"' + $part2.split('"')[1] + '"'
-                $installerVersion = '"' + $part2.split('"')[3] + '"'
-    
-                $installArgs = @(
-                "-i", "deploy", "--offline_mode", "-q", "-o", $xmlPath, "--installer_version", $installerVersion
-    
-                )
-    
-            }
-        }    
-    
-        try
-        {
-            Start-ADTProcess -File $part1 -ArgumentList $installArgs -WaitForMsiExec -WaitForChildProcesses
-        }
-        catch
-        {
-    
-            Write-Host $_
-    
-        }
-    
-    }
+    Start-ADTProcess -FilePath "C:\ai2io_it\revit\downloads\revit2023\image\Installer.exe" -ArgumentList '-i deploy --offline_mode -q -o "C:\ai2io_it\revit\downloads\revit2023\image\Collection.xml" --installer_version "2.19.0.120"'
     
     Remove-Item -Path "C:\Program Files\Autodesk_Temp" -Recurse -Force
-    Remove-Item -Path $deploymentCacheFolder -Recurse -Force
+    
+    Remove-Item -Path "C:\Autodesk\WI" -Recurse -Force
 
     ##================================================
     ## MARK: Post-Install
@@ -249,7 +145,7 @@ function Install-ADTDeployment
     $adtSession.InstallPhase = "Post-$($adtSession.DeploymentType)"
 
     ## Master Wrapper detection
-    Set-ADTRegistryKey -Key "HKLM\SOFTWARE\InstalledApps\Autodesk_Autodesk Revit 2023_2023.1.8"
+    Set-ADTRegistryKey -Key "HKLM\SOFTWARE\InstalledApps\Autodesk_Revit 2023_v1.8"
 }
 
 function Uninstall-ADTDeployment
@@ -264,121 +160,16 @@ function Uninstall-ADTDeployment
     ##================================================
     $adtSession.InstallPhase = "Pre-$($adtSession.DeploymentType)"
 
-    Show-ADTInstallationProgress
+    Show-ADTInstallationProgress -StatusMessage "Installation in progress...`n`nThe installation may take up to 45 minutes to an hour."
+
+    Start-ADTProcess -FilePath Revit2023.exe -ArgumentList "-q" 
 
     ##================================================
     ## MARK: Uninstall
     ##================================================
     $adtSession.InstallPhase = $adtSession.DeploymentType
 
-    $sciptName = $MyInvocation.MyCommand.Name
-    $myLocation = $MyInvocation.MyCommand.Source.Replace("$($sciptName)", "")
-    
-    cd $myLocation
-    
-    #Path for installation tool
-    #Enter name of installation tool below
-    $extractorFile = "Revit 2023.1.8 10-29-2025.exe"
-    $deploymentCacheFolder = "C:\ai2io_it\revit\downloads"
-    $productFolderName = "revit2023"
-    
-    if(Test-Path -Path "C:\Program Files\Autodesk_Temp\")
-    {
-        $copyResult = Copy-Item "$($myLocation)\$($extractorFile)" -Destination "C:\Program Files\Autodesk_Temp\$($extractorFile)" -Force
-    
-    }else
-    {
-        New-Item -Path "C:\Program Files\Autodesk_Temp\" -ItemType Directory -Force
-        $copyResult = Copy-Item "$($myLocation)\$($extractorFile)" -Destination "C:\Program Files\Autodesk_Temp\$($extractorFile)" -Force
-    }
-    
-    if(Test-Path -Path "C:\Program Files\Autodesk_Temp\$($extractorFile)")
-    {
-        Start-Process -FilePath "C:\Program Files\Autodesk_Temp\$($extractorFile)" -ArgumentList "-q" -Wait
-    }
-    
-    $tempDeploymentDirectory = [System.IO.DirectoryInfo]::new("$($deploymentCacheFolder)\$($productFolderName)")
-    $successLine = $null
-    $installFile = $null
-    
-    do
-    {
-    
-        foreach($file in $tempDeploymentDirectory.GetFiles())
-        {
-    
-            if($file.Extension -eq ".log")
-            {
-                $log = Get-Content -Path $file.FullName
-    
-                $successLine = $log | Where-Object {$_ -match "The deployment image is created successfully"}
-    
-            }
-    
-            if($successLine -ne $null)
-            {
-                #Get the generated install batch file
-                if($file.extension -eq ".bat")
-                {
-    
-                    $installFile = Get-Content -Path $file.FullName
-    
-                }
-    
-            }
-    
-            
-        }
-    
-    }Until($successLine -ne $null)
-    
-    if($successLine -ne $null)
-    {
-        #If deployment image has been created then all files have been extracted
-        #Use silent uninstall command from the deployment.bat file
-        #Start-Process -FilePath "C:\Program Files\Autodesk Deployment Cache\AutoCad\image\Installer.exe" -ArgumentList '-i uninstall -q --manifest "C:\Program Files\Autodesk Deployment Cache\AutoCad\image\ACD_2022_en-US\setup.xml" --extension_manifest "C:\Program Files\Autodesk Deployment Cache\AutoCad\image\ACD_2022_en-US\setup_ext.xml"' -Wait
-    
-        $executable = ""
-        $uninstallArgs = ""
-    
-        foreach($line in $installFile)
-        {
-            #We are looking for the silent install line so we can find that using this sub string
-            if($line.Contains("-i uninstall -q"))
-            {            
-                #we need to split the installation line into two parts so that it can be used by the Start-Process command
-                $installParts = $line -split " -i "
-                #We need to remove the "rem " part of the line
-                $executable = $installParts[0].Remove(0, 4)
-    
-                #Now we will split the line to get the manifest and extension manifest xml locations
-                $xmlLocations = (($line -split "--manifest ")[1] -split "--extension_manifest ")
-                $manifestXml = $xmlLocations[0]
-                $extension_manifestXml = $xmlLocations[1]
-                
-                #We can now put it all together in an array for powershell to handle
-                $uninstallArgs = @(
-                "-i", "uninstall", "-q", "--manifest", $manifestXml, "--extension_manifest", $extension_manifestXml
-    
-                )
-    
-            }
-        }    
-    
-        try
-        {
-            Start-ADTProcess -File $executable -ArgumentList $uninstallArgs -Wait
-        }
-        catch
-        {
-    
-            Write-Host $_
-    
-        }
-    }
-    
-    Remove-Item -Path "C:\Program Files\Autodesk_Temp" -Recurse -Force
-    Remove-Item -Path $deploymentCacheFolder -Recurse -Force
+    Start-ADTProcess -FilePath "C:\ai2io_it\revit\downloads\revit2023\image\Installer.exe" -ArgumentList '-i uninstall -q --manifest "C:\ai2io_it\revit\downloads\revit2023\image\RVT_2023_en-US\setup.xml" --extension_manifest "C:\ai2io_it\revit\downloads\revit2023\image\RVT_2023_en-US\setup_ext.xml"'
 
     ##================================================
     ## MARK: Post-Uninstallation
@@ -386,7 +177,7 @@ function Uninstall-ADTDeployment
     $adtSession.InstallPhase = "Post-$($adtSession.DeploymentType)"
 
     ## Master Wrapper detection
-    Remove-ADTRegistryKey -Key "HKLM\SOFTWARE\InstalledApps\Autodesk_Autodesk Revit 2023_2023.1.8"
+    Remove-ADTRegistryKey -Key "HKLM\SOFTWARE\InstalledApps\Autodesk_Revit 2023_v1.8"
 }
 
 function Repair-ADTDeployment
@@ -406,13 +197,15 @@ function Repair-ADTDeployment
     ##================================================
     $adtSession.InstallPhase = $adtSession.DeploymentType
 
+    Start-ADTProcess -FilePath 'Invoke-AppDeployToolkit.exe' -ArgumentList ""
+
     ##================================================
     ## MARK: Post-Repair
     ##================================================
     $adtSession.InstallPhase = "Post-$($adtSession.DeploymentType)"
 
     ## Master Wrapper detection
-    Set-ADTRegistryKey -Key "HKLM\SOFTWARE\InstalledApps\Autodesk_Autodesk Revit 2023_2023.1.8"
+    Set-ADTRegistryKey -Key "HKLM\SOFTWARE\InstalledApps\Autodesk_Revit 2023_v1.8"
 }
 
 
